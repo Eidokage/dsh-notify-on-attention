@@ -1,8 +1,6 @@
 # dsh-notify-on-attention
 
-DSH 插件：在**需要你介入**的时候弹 Windows 系统通知。
-
-你切去干别的活，不用一直盯着 DSH 窗口——有事它会响。
+DSH 插件：在**需要你介入**的时候弹 Windows 系统通知。DSH 工作期间可以切去干别的活。
 
 ---
 
@@ -10,14 +8,14 @@ DSH 插件：在**需要你介入**的时候弹 Windows 系统通知。
 
 | 时机 | 事件来源 | 默认 |
 |---|---|---|
-| 代理向你提问，等你回答 | `tool/call` 且工具名是 `ask_user_question` | 开 |
+| 提问等你回答 | `tool/call` 且工具名是 `ask_user_question` | 开 |
 | 需要你批准某个操作 | `approval/asked` | 开 |
 | 一轮对话正常跑完 | `turn/end` 且 `reason.kind === 'completed'` | 开 |
 
-**不会弹的情况（故意的）**
+**不会弹的情况**
 
-- 你自己按了停止键（`turn/end` 的 `reason.kind` 是 `aborted`）——那是你干的，再提醒就是打扰
-- 审批结果出来时（`approval/decided`）——你刚做完决定，马上再弹一条纯属噪音
+- 用户按了停止键（`turn/end` 的 `reason.kind` 是 `aborted`）
+- 审批结果出来时（`approval/decided`）
 - 普通工具调用（读文件、跑命令等）
 
 ---
@@ -26,7 +24,7 @@ DSH 插件：在**需要你介入**的时候弹 Windows 系统通知。
 
 配置文件：`C:\Users\<你>\.dsh\notify-on-attention.json`
 
-**这个文件不存在也能正常工作**，不存在就用下面的默认值。想改哪项就写哪项，不用写全。
+**这个文件不存在也能正常工作**，不存在就用下面的默认值。
 
 ```json
 {
@@ -46,11 +44,11 @@ DSH 插件：在**需要你介入**的时候弹 Windows 系统通知。
 | `notifyOnQuestion` | 代理提问时提醒 |
 | `notifyOnApproval` | 需要审批时提醒 |
 | `notifyOnTurnEnd` | 一轮对话完成时提醒 |
-| `playSound` | 是否播放系统提示音。专注环境里关掉更舒服 |
+| `playSound` | 是否播放系统提示音 |
 | `suppressWhenForeground` | 目前是保留项，实际未生效（判断前台窗口代价较大，默认不做） |
 | `minIntervalMs` | 同类通知的最小间隔，用来防轰炸。一次审批连带触发多条时只会弹第一条 |
 
-配置写坏了不会炸插件：JSON 不合法、类型不对、键名拼错，都会记一条 `warn` 日志后退回默认值。你打开日志能看到「我写的配置没生效」，而不是对着没反应干猜。
+配置写坏了不会炸插件：JSON 不合法、类型不对、键名拼错，都会记一条 `warn` 日志后退回默认值。
 
 也可以用环境变量 `DSH_NOTIFY_CONFIG` 把配置文件指到别处。
 
@@ -58,7 +56,7 @@ DSH 插件：在**需要你介入**的时候弹 Windows 系统通知。
 
 ## 工作原理
 
-`ctx.on('session/event', handler, { global: true })` —— `{ global: true }` 是关键，它让**所有**会话的事件都进来，而不只是当前聚焦的那个。这正是「切走也能被提醒」的前提。
+`ctx.on('session/event', handler, { global: true })` —— `{ global: true }` 让**所有**会话的事件都进来，而不只是当前聚焦的那个。这是「切走也能被提醒」的前提。
 
 拿到事件后按 `event.type` 分发，载荷在 `event.data`。
 
@@ -70,16 +68,16 @@ powershell.exe -NoProfile -NonInteractive -EncodedCommand <Base64(UTF-16LE 脚�
 
 脚本用 `.NET` 的 WinRT 投影调 `Windows.UI.Notifications.ToastNotificationManager`。
 
-### 三个踩过的坑（都有注释，改代码前先看一眼）
+### 注意事项（都有注释）
 
 1. **必须用 `powershell.exe`（5.1），不能用 `pwsh`（7）**
-   pwsh 7 默认不带 WinRT 投影，加载 `Windows.UI.Notifications` 直接报「找不到类型」。
+   pwsh 7 默认不带 WinRT 投影，加载 `Windows.UI.Notifications` 会报「找不到类型」。
 
 2. **Toast 必须挂在已注册的 AppUserModelID 下**
    借用 Windows PowerShell 自己的 AUMID，好处是**不用往注册表写任何东西**，卸载后系统里不留痕迹。
 
 3. **XML 要用单引号拼进 PowerShell，不能用 `JSON.stringify`**
-   后者生成双引号包裹的字符串并把内部 `"` 转义成 `\"`，而 PowerShell 双引号字符串里 `\"` 不是转义——直接把字符串截断，报「表达式或语句中包含意外的标记」。
+   后者生成双引号包裹的字符串并把内部 `"` 转义成 `\"`，而 PowerShell 双引号字符串里 `\"` 不是转义，直接把字符串截断，报「表达式或语句中包含意外的标记」。
 
 ---
 
@@ -98,7 +96,7 @@ dsh plugin --profile desktop remove dsh-notify-on-attention
 
 装完/改完配置都要**重启 DSH** 才生效。
 
-`package.json` 里的 `dsh.bundle.patch` 和 `cordis.patch.yml` 是必须的——没有它们，DSH 会把插件当普通依赖装进来（会警告 `declares no dsh.bundle`），**代码根本不会被加载**。
+`package.json` 里的 `dsh.bundle.patch` 和 `cordis.patch.yml` 是必须的。没有它们，DSH 会把插件当普通依赖装进来（会警告 `declares no dsh.bundle`），**代码根本不会被加载**。
 
 ---
 
@@ -139,7 +137,7 @@ npm test
 ## 已知限制
 
 - **只有 Windows 能用**。非 Windows 平台上插件会记一条 info 日志后不做事。
-- **通知来源显示为 Windows PowerShell**。因为借用了它的 AUMID，而没有注册独立的应用身份。要显示成「DSH」需要往注册表写 `HKCU\Software\Classes\AppUserModelId`，本插件刻意不这么做——卸载后不留痕迹比图标好看更重要。
+- **通知来源显示为 Windows PowerShell**。因为借用了它的 AUMID，而没有注册独立的应用身份。要显示成「DSH」需要往注册表写 `HKCU\Software\Classes\AppUserModelId`，本插件刻意不这么做，卸载后不留痕迹比图标好看更重要。
 - `suppressWhenForeground` 目前是保留项。真要做需要调 `GetForegroundWindow` 比对 DSH 窗口句柄，每次事件一次跨进程调用，收益不值这个代价。
 - 通知内容不包含会话的完整历史，只有标题 + 一句摘要。想更详细的信息请回到 DSH 看。
 
