@@ -1,0 +1,7 @@
+# DSH bundle 补丁：把本插件插入当前 profile 的插件表。
+#
+# 没有这个文件和 package.json 里的 dsh.bundle 声明，DSH 会把插件当成
+# 普通依赖装进来（dsh 会警告 "declares no dsh.bundle"），但不会加载它的代码。
+- insert:
+    - id: dsh-notify-on-attention
+      name: 'dsh-notify-on-attention'

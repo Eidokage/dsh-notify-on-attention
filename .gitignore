@@ -1,0 +1,18 @@
+# 依赖
+node_modules/
+
+# 本地工具与会话产物
+.dsh-project-memory/
+.omd/
+demo/_logs/
+*.log
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*~
