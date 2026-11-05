@@ -12,9 +12,9 @@ DSH 插件：在**需要你介入**的时候弹 Windows 系统通知。DSH 工�
 | 需要你批准某个操作 | `approval/asked` | 开 |
 | 一轮对话正常跑完 | `turn/end` 且 `reason.kind === 'completed'` | 开 |
 
-**不会弹的情况（故意的）**
+**不会弹的情况**
 
-- 你自己按了停止键（`turn/end` 的 `reason.kind` 是 `aborted`）
+- 用户按了停止键（`turn/end` 的 `reason.kind` 是 `aborted`）
 - 审批结果出来时（`approval/decided`）
 - 普通工具调用（读文件、跑命令等）
 
