@@ -111,6 +111,29 @@ dsh plugin --profile desktop remove dsh-notify-on-attention
 
 如果三条都没弹：先在 `C:\Users\Fox\.dsh\profiles\desktop` 的日志里搜 `[notify]`，看是配置关掉了、还是系统通知被禁用了。
 
+### 自动化烟测
+
+```powershell
+npm test
+```
+
+不需要装任何依赖（没有测试框架，直接 `node` 跑），clone 下来即可验证。
+
+烟测刻意**不弹真实通知**——那需要有人坐在电脑前看，没法自动化，也不该在 CI 机器上乱弹。它断言的是「该弹的时候发出了发送调用、不该弹的时候一次都没发」：
+
+| 覆盖点 | 断言内容 |
+|---|---|
+| 配置解析 | 缺文件/坏 JSON/顶层非对象/未知键/类型不符，一律退回默认值且不抛异常 |
+| 事件翻译 | 三类事件各自触发、`approval/decided` 与 `aborted` 不触发、普通工具调用不触发 |
+| 节流 | 同类通知在 `minIntervalMs` 内只发一条，且**不同类别互不压制** |
+| 开关 | `enabled` 与三个单项开关各管各的 |
+| 卸载 | 插件停用后事件不再进来 |
+| 编码约定 | 脚本确实按 UTF-16LE + Base64 走 `-EncodedCommand`、`SHOWN` 标记存在、XML 特殊字符被转义 |
+
+为了能测这些，`lib/` 做了三处**不改变行为**的改动：`config.js` 拆出 `mergeConfig()`（喂对象比落盘造文件好测）、`listeners.js` 的 `installListeners()` 接受可注入的发送函数、`toast.js` 拆出 `buildCommandArgs()`/`decodeCommandArgs()`、`index.js` 追加 `export const plugin = { name, apply }`。默认参数与运行时行为完全不变。
+
+一次改动的真实验证记录：把 `listeners.js` 里 `if (kind !== 'completed') return` 改成恒 false，烟测立刻红在「用户自己按的停止键不该再提醒」；把 `config.js` 的 `config[key] = value` 改回 `config[key] = DEFAULT_CONFIG[key]`，立刻红在「合法键应生效」。说明这些断言不是摆设。
+
 ---
 
 ## 已知限制
@@ -119,3 +142,27 @@ dsh plugin --profile desktop remove dsh-notify-on-attention
 - **通知来源显示为 Windows PowerShell**。因为借用了它的 AUMID，而没有注册独立的应用身份。要显示成「DSH」需要往注册表写 `HKCU\Software\Classes\AppUserModelId`，本插件刻意不这么做——卸载后不留痕迹比图标好看更重要。
 - `suppressWhenForeground` 目前是保留项。真要做需要调 `GetForegroundWindow` 比对 DSH 窗口句柄，每次事件一次跨进程调用，收益不值这个代价。
 - 通知内容不包含会话的完整历史，只有标题 + 一句摘要。想更详细的信息请回到 DSH 看。
+
+---
+
+## 关于作者与 AI 协作
+
+这个插件的代码由 AI 助手（Claude / DeepSeek-Harness）在人类需求驱动下写成，人类负责定方向、验收与拍板。写在这里不是免责声明，是因为它对使用者的判断有意义：
+
+**值得信任的部分**
+
+- 三个「踩过的坑」不是编的——`powershell.exe` 5.1 与 `pwsh` 7 的 WinRT 投影差异、借用 PowerShell AUMID 不写注册表、XML 用单引号拼而非 `JSON.stringify`，都是实际跑出来的报错，代码注释里写了失败现象和原因，你可以自己复现验证。
+- 「不弹的情况」是刻意设计的判断（`aborted` 是用户自己按的停止键、`approval/decided` 是刚做完的决定），不是漏实现。
+- `npm test` 的 21 项断言都是有意义的，且做过破坏性验证（见上节）。
+
+**需要你自己把关的部分**
+
+- 事件契约来自对 app.asar 类型声明的阅读，不是官方文档。DSH 升版后若事件载荷变了，插件会**静默不弹**而不是报错——因为所有失败路径都只记日志。留意日志里的 `[notify]`。
+- 权限面：插件会 `spawn('powershell.exe', ...)`。虽然是固定参数（脚本内容由本插件生成，用户文本只进 XML 文本节点且已转义），但如果你对「插件能起进程」这件事本身有顾虑，这个判断该由你来做。
+- 没有在干净环境里做过完整回归。你的机器就是第一个真实测试环境。
+
+---
+
+## 许可证
+
+[MIT](LICENSE) © 2026 Eidokage

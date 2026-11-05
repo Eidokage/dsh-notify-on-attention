@@ -4,6 +4,9 @@
   "description": "DSH 插件：在需要你介入时弹 Windows 系统通知（代理提问、需要审批、一轮对话结束）",
   "type": "module",
   "main": "lib/index.js",
+  "scripts": {
+    "test": "node test/smoke.test.js"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
@@ -11,6 +14,8 @@
   },
   "files": [
     "lib",
+    "test",
+    "LICENSE",
     "cordis.patch.yml",
     "README.md"
   ],
